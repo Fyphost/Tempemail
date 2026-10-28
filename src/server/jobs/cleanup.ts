@@ -17,6 +17,7 @@ import { logger } from "@/server/logger";
 import { EVENTS_CHANNEL } from "@/server/realtime/events";
 import { getSettings } from "@/server/settings";
 
+import { deleteStaleHeartbeats } from "./heartbeat";
 import { recoverStaleJobs } from "./queue";
 
 const HOUR = 3_600_000;
@@ -131,6 +132,7 @@ export async function runCleanup(): Promise<CleanupReport> {
         lt(contactRequests.createdAt, new Date(now - settings.retention.contactRequestsDays * DAY)),
       ),
   );
+  await deleteStaleHeartbeats();
 
   return {
     expiredInboxes,

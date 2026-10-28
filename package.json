@@ -17,14 +17,15 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --conditions=react-server --env-file-if-exists=.env src/worker/cli.ts migrate",
     "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env src/worker/cli.ts create-admin",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:smtp": "tsx --conditions=react-server --env-file-if-exists=.env scripts/send-test-email.ts"
+    "test:smtp": "tsx --conditions=react-server --env-file-if-exists=.env scripts/send-test-email.ts",
+    "db:check": "drizzle-kit generate --name check && git diff --exit-code --stat -- drizzle && test -z \"$(git status --porcelain -- drizzle)\""
   },
   "dependencies": {
     "@hookform/resolvers": "6.0.2",

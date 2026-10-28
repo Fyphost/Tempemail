@@ -174,6 +174,29 @@ export async function updateUserByAdmin(
   return user;
 }
 
+/** Administrator-initiated password reset (there is no email-based reset). Signs the user out everywhere. */
+export async function setPasswordByAdmin(
+  userId: string,
+  password: string,
+  actor: AuditActor,
+): Promise<void> {
+  assertPasswordStrength(password);
+  const db = getDb();
+  const [user] = await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning({ email: users.email });
+  if (!user) throw errors.notFound("User not found.");
+  await revokeAllUserSessions(userId);
+  await writeAudit(
+    actor,
+    "user.password_reset",
+    { type: "user", id: userId },
+    { email: user.email },
+  );
+}
+
 export async function changePassword(userId: string, current: string, next: string): Promise<void> {
   const db = getDb();
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);

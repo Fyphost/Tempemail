@@ -1,0 +1,95 @@
+# Production stack: PostgreSQL, migrations, web app, worker (SMTP on port 25) and
+# Caddy (automatic HTTPS). Configure everything in .env (see .env.example).
+#
+#   docker compose up -d --build
+#
+name: tempemail
+
+x-app: &app
+  image: tempemail:latest
+  build:
+    context: .
+    args:
+      APP_URL: ${APP_URL:?Set APP_URL in .env}
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://tempemail:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/tempemail
+    NODE_ENV: production
+  restart: unless-stopped
+  init: true
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tempemail
+      POSTGRES_USER: tempemail
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tempemail -d tempemail"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["node", "dist/cli.mjs", "migrate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    environment:
+      DATABASE_URL: postgres://tempemail:${POSTGRES_PASSWORD}@postgres:5432/tempemail
+      NODE_ENV: production
+      # Caddy is the single trusted proxy in front of the app.
+      TRUST_PROXY_HOPS: "1"
+    expose:
+      - "3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *app
+    command: ["node", "dist/worker.mjs"]
+    environment:
+      DATABASE_URL: postgres://tempemail:${POSTGRES_PASSWORD}@postgres:5432/tempemail
+      NODE_ENV: production
+      SMTP_PORT: "2525"
+    ports:
+      # Public MX traffic. The container listens on 2525 so it can run unprivileged.
+      - "25:2525"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

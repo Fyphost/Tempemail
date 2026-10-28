@@ -26,10 +26,12 @@ import {
   ipBlocks,
   users,
   webhookFailures,
+  workerHeartbeats,
 } from "@/server/db/schema";
 import { errors } from "@/server/http/errors";
 import { deleteInboxById } from "@/server/inboxes/service";
 import { hashIp, maskIp, normalizeIp } from "@/server/security/ip";
+import { HEARTBEAT_STALE_MS } from "@/server/jobs/heartbeat";
 import { utcDay } from "@/server/stats";
 
 const DAY = 86_400_000;
@@ -51,6 +53,14 @@ export interface OverviewStats {
   series: { day: string; inboxes: number; messages: number; api: number }[];
   domainsReceiving: number;
   domainsTotal: number;
+  workers: {
+    id: string;
+    lastSeenAt: Date;
+    smtpListening: boolean;
+    smtpPort: number | null;
+    smtpTls: boolean;
+    online: boolean;
+  }[];
 }
 
 export async function getOverviewStats(): Promise<OverviewStats> {
@@ -131,6 +141,16 @@ export async function getOverviewStats(): Promise<OverviewStats> {
     series,
     domainsReceiving: domainRows.filter(isDomainReceiving).length,
     domainsTotal: domainRows.length,
+    workers: (
+      await db.select().from(workerHeartbeats).orderBy(desc(workerHeartbeats.lastSeenAt))
+    ).map((row) => ({
+      id: row.id,
+      lastSeenAt: row.lastSeenAt,
+      smtpListening: row.smtpListening,
+      smtpPort: row.smtpPort,
+      smtpTls: row.smtpTls,
+      online: Date.now() - row.lastSeenAt.getTime() < HEARTBEAT_STALE_MS,
+    })),
   };
 }
 

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   blockNetworkAction,
   deleteInboxAction,
+  resetUserPasswordAction,
   retryJobAction,
   setContactStatusAction,
   unblockNetworkAction,
@@ -280,6 +281,7 @@ export function UserControls({
           <SelectItem value="admin">Admin</SelectItem>
         </SelectContent>
       </Select>
+      <ResetPasswordDialog id={id} />
       <Button
         size="sm"
         variant={status === "active" ? "destructive-outline" : "outline"}
@@ -294,6 +296,66 @@ export function UserControls({
         {status === "active" ? "Disable" : "Enable"}
       </Button>
     </div>
+  );
+}
+
+function ResetPasswordDialog({ id }: { id: string }) {
+  const { pending, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" disabled={pending}>
+          Reset password
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Set a new password</DialogTitle>
+          <DialogDescription>
+            The user is signed out everywhere. Share the new password securely and ask them to
+            change it.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            run(
+              () => resetUserPasswordAction({ id, password }),
+              "Password updated",
+              () => {
+                setOpen(false);
+                setPassword("");
+              },
+            );
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor={`reset-${id}`}>New password</Label>
+            <Input
+              id={`reset-${id}`}
+              type="password"
+              minLength={10}
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending || password.length < 10}>
+              {pending ? <LoaderCircleIcon className="animate-spin" /> : null}
+              Set password
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

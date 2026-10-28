@@ -14,6 +14,7 @@ import { errors } from "@/server/http/errors";
 import { logger } from "@/server/logger";
 import { notifyJobQueued } from "@/server/realtime/events";
 import { sha256Hex } from "@/server/security/crypto";
+import { consumeMemoryRateLimit } from "@/server/security/rate-limit";
 import { incrementStat } from "@/server/stats";
 
 export class PermanentJobError extends Error {
@@ -189,12 +190,17 @@ export async function retryIngestJob(jobId: string, actor: AuditActor): Promise<
   await writeAudit(actor, "ingest_job.retried", { type: "ingest_job", id: jobId });
 }
 
+/**
+ * Record a rejected webhook delivery for the admin dashboard. Logging is
+ * capped per source so a flood of forged requests cannot fill the table.
+ */
 export async function recordWebhookFailure(
   provider: string,
   reason: string,
   statusCode: number,
   ipHash: string | null,
 ): Promise<void> {
+  if (!consumeMemoryRateLimit(`webhook-failure:${ipHash ?? "unknown"}`, 20, 60).allowed) return;
   try {
     await getDb()
       .insert(webhookFailures)

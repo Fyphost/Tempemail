@@ -1,0 +1,17 @@
+# Caddy obtains and renews the TLS certificate for APP_DOMAIN automatically.
+{$APP_DOMAIN} {
+	# Next.js compresses responses itself; Server-Sent Events must not be buffered.
+	reverse_proxy web:3000 {
+		flush_interval -1
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	header {
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

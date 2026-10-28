@@ -11,7 +11,7 @@ import {
 } from "@/server/admin/service";
 import type { AuditActor } from "@/server/audit";
 import { actorFor, getSessionUser } from "@/server/auth/session";
-import { createUser, updateUserByAdmin } from "@/server/auth/users";
+import { createUser, setPasswordByAdmin, updateUserByAdmin } from "@/server/auth/users";
 import {
   checkDomainDns,
   createDomain,
@@ -216,6 +216,25 @@ export async function createUserAction(input: z.input<typeof newUser>): Promise<
     if (!parsed.success)
       throw errors.badRequest(parsed.error.issues[0]?.message ?? "Invalid input.");
     await createUser(parsed.data, actor);
+    revalidatePath("/admin/users");
+    return undefined;
+  });
+}
+
+const passwordReset = z.object({
+  id: uuid,
+  password: z.string().min(10, "Use at least 10 characters.").max(200),
+});
+
+export async function resetUserPasswordAction(
+  input: z.input<typeof passwordReset>,
+): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireAdminActor();
+    const parsed = passwordReset.safeParse(input);
+    if (!parsed.success)
+      throw errors.badRequest(parsed.error.issues[0]?.message ?? "Invalid input.");
+    await setPasswordByAdmin(parsed.data.id, parsed.data.password, actor);
     revalidatePath("/admin/users");
     return undefined;
   });

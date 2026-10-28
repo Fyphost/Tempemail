@@ -37,6 +37,7 @@ const TABLES = [
   "rate_limits",
   "daily_stats",
   "contact_requests",
+  "worker_heartbeats",
 ];
 
 beforeEach(async () => {

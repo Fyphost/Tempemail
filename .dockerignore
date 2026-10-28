@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+.next
+dist
+coverage
+*.log
+.env
+.env.*
+!.env.example
+docs
+integrations
+tests
+*.tsbuildinfo
+Dockerfile
+docker-compose*.yml

@@ -5,9 +5,10 @@ import { ensureBootstrapAdmin } from "@/server/auth/users";
 import { closeDb, getPool } from "@/server/db/client";
 import { getEnv } from "@/server/env";
 import { LOCKS, recheckDomains, runCleanup, withAdvisoryLock } from "@/server/jobs/cleanup";
+import { startHeartbeat } from "@/server/jobs/heartbeat";
 import { IngestRunner } from "@/server/jobs/runner";
 import { logger } from "@/server/logger";
-import { closeSmtpServer, createSmtpServer, listen } from "@/server/mail/smtp";
+import { closeSmtpServer, createSmtpServer, listen, watchTlsCertificate } from "@/server/mail/smtp";
 import { flushApiRequestCount } from "@/server/stats";
 
 const CLEANUP_INTERVAL_MS = 60_000;
@@ -58,7 +59,14 @@ async function main(): Promise<void> {
   const health = startHealthServer(Number(process.env.WORKER_HEALTH_PORT ?? 8081), state);
 
   await getPool().query("select 1");
-  await ensureBootstrapAdmin();
+  await ensureBootstrapAdmin().catch((error: unknown) => {
+    logger.error(
+      "Could not create the bootstrap administrator (check ADMIN_BOOTSTRAP_EMAIL/PASSWORD)",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
+  });
 
   const runner = new IngestRunner(env.WORKER_CONCURRENCY);
   await runner.start();
@@ -75,6 +83,10 @@ async function main(): Promise<void> {
       onQueued: () => runner.kick(),
     });
     await listen(smtp, env.SMTP_PORT, env.SMTP_BIND_HOST);
+    watchTlsCertificate(smtp, {
+      tlsKeyFile: env.SMTP_TLS_KEY_FILE,
+      tlsCertFile: env.SMTP_TLS_CERT_FILE,
+    });
     logger.info("SMTP server listening", {
       host: env.SMTP_BIND_HOST,
       port: env.SMTP_PORT,
@@ -95,6 +107,11 @@ async function main(): Promise<void> {
   ];
 
   state.ready = true;
+  const heartbeat = startHeartbeat(() => ({
+    smtpListening: smtp !== null && state.ready,
+    smtpPort: smtp ? env.SMTP_PORT : null,
+    smtpTls: Boolean(smtp && env.SMTP_TLS_KEY_FILE && env.SMTP_TLS_CERT_FILE),
+  }));
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {
@@ -103,6 +120,7 @@ async function main(): Promise<void> {
     logger.info("Worker shutting down", { signal });
     state.ready = false;
     for (const timer of timers) clearInterval(timer);
+    await heartbeat.stop();
     if (smtp) await closeSmtpServer(smtp);
     await runner.stop();
     await flushApiRequestCount();

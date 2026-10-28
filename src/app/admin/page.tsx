@@ -12,8 +12,9 @@ import {
 import Link from "next/link";
 
 import { AdminPageHeader } from "@/components/admin/admin-shell";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, formatBytes } from "@/lib/utils";
+import { cn, formatBytes, formatDateTime } from "@/lib/utils";
 import { requireAdmin } from "@/server/auth/session";
 import { getOverviewStats } from "@/server/admin/service";
 
@@ -105,6 +106,13 @@ export default async function AdminOverviewPage() {
         title="Overview"
         description="Service health, delivery volume and storage at a glance."
       />
+      {!stats.workers.some((worker) => worker.online) ? (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-destructive-soft p-4 text-sm text-red-900">
+          <CircleAlertIcon className="size-5 shrink-0 text-destructive" />
+          No worker is online. Incoming email is not being accepted over SMTP or processed from
+          webhooks. Start the worker (`node dist/worker.mjs` or the `worker` compose service).
+        </div>
+      ) : null}
       {stats.domainsReceiving === 0 ? (
         <Link
           href="/admin/domains"
@@ -192,6 +200,38 @@ export default async function AdminOverviewPage() {
           </CardHeader>
           <CardContent>
             <BarChart series={stats.series} field="inboxes" label="Inboxes created" />
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Workers</CardTitle>
+            <CardDescription>
+              Processes that run the SMTP server, the ingestion queue and scheduled cleanup.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats.workers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No worker has reported in yet.</p>
+            ) : (
+              <ul className="divide-y divide-border text-sm">
+                {stats.workers.map((worker) => (
+                  <li key={worker.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                    <Badge variant={worker.online ? "success" : "destructive"}>
+                      {worker.online ? "Online" : "Offline"}
+                    </Badge>
+                    <span className="font-mono text-xs">{worker.id}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {worker.smtpListening
+                        ? `SMTP on port ${worker.smtpPort}${worker.smtpTls ? " with STARTTLS" : " without STARTTLS"}`
+                        : "SMTP disabled (webhook ingestion only)"}
+                    </span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      Last seen {formatDateTime(worker.lastSeenAt.toISOString())}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
         <Card>

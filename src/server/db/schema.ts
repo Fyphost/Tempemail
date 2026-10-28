@@ -335,6 +335,16 @@ export const dailyStats = pgTable("daily_stats", {
   apiRequests: integer("api_requests").notNull().default(0),
 });
 
+/** Liveness of worker processes, so the admin can see whether SMTP is really listening. */
+export const workerHeartbeats = pgTable("worker_heartbeats", {
+  id: text("id").primaryKey(),
+  startedAt: ts("started_at").notNull(),
+  lastSeenAt: ts("last_seen_at").notNull(),
+  smtpListening: boolean("smtp_listening").notNull().default(false),
+  smtpPort: integer("smtp_port"),
+  smtpTls: boolean("smtp_tls").notNull().default(false),
+});
+
 export const contactRequests = pgTable(
   "contact_requests",
   {

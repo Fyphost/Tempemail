@@ -149,6 +149,33 @@ export async function createSmtpServer(config: SmtpServerConfig): Promise<SMTPSe
   return server;
 }
 
+/**
+ * Reload the STARTTLS certificate when its files change (for example after an
+ * ACME renewal by the reverse proxy), without dropping the listener.
+ */
+export function watchTlsCertificate(
+  server: SMTPServer,
+  config: Pick<SmtpServerConfig, "tlsKeyFile" | "tlsCertFile">,
+  intervalMs = 6 * 3_600_000,
+): NodeJS.Timeout | null {
+  const { tlsKeyFile, tlsCertFile } = config;
+  if (!tlsKeyFile || !tlsCertFile) return null;
+  let lastCert = readFileSync(tlsCertFile, "utf8");
+  const timer = setInterval(() => {
+    try {
+      const cert = readFileSync(tlsCertFile, "utf8");
+      if (cert === lastCert) return;
+      server.updateSecureContext({ key: readFileSync(tlsKeyFile), cert: Buffer.from(cert) });
+      lastCert = cert;
+      logger.info("Reloaded SMTP TLS certificate");
+    } catch (error) {
+      logger.warn("Could not reload SMTP TLS certificate", { error });
+    }
+  }, intervalMs);
+  timer.unref();
+  return timer;
+}
+
 export function listen(server: SMTPServer, port: number, host: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const onError = (error: Error) => reject(error);
