@@ -1,0 +1,32 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# build output
+/dist/
+/build/
+
+# testing
+/coverage/
+
+# environment and secrets (never commit real credentials)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# logs and OS files
+npm-debug.log*
+.DS_Store
+*.log
+
+# local data
+/data/
+/.pgdata/
