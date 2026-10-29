@@ -202,6 +202,24 @@ export default async function AdminOverviewPage() {
             <BarChart series={stats.series} field="inboxes" label="Inboxes created" />
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>API request volume</CardTitle>
+            <CardDescription>Requests handled by the REST API</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="tabular text-3xl font-semibold tracking-tight">
+                {number.format(stats.apiRequestsToday)}
+              </p>
+              <p className="text-xs text-muted-foreground">Today (UTC)</p>
+            </div>
+            <div>
+              <p className="tabular text-xl font-semibold">{number.format(stats.apiRequests7d)}</p>
+              <p className="text-xs text-muted-foreground">Last 7 days</p>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Workers</CardTitle>
@@ -232,24 +250,6 @@ export default async function AdminOverviewPage() {
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>API request volume</CardTitle>
-            <CardDescription>Requests handled by the REST API</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="tabular text-3xl font-semibold tracking-tight">
-                {number.format(stats.apiRequestsToday)}
-              </p>
-              <p className="text-xs text-muted-foreground">Today (UTC)</p>
-            </div>
-            <div>
-              <p className="tabular text-xl font-semibold">{number.format(stats.apiRequests7d)}</p>
-              <p className="text-xs text-muted-foreground">Last 7 days</p>
-            </div>
           </CardContent>
         </Card>
       </div>
