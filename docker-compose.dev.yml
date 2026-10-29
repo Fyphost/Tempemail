@@ -1,0 +1,27 @@
+# Local development services. Run the app itself with `npm run dev` and
+# `npm run dev:worker`.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+name: tempemail-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tempemail
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata-dev:
